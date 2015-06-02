@@ -2,6 +2,9 @@
 
 PROJECT=druid
 
+
+
+
 DIST_DIR=dist/tar
 
 SCRIPT_DIR=`dirname $0`
