@@ -76,6 +76,22 @@ public enum DimensionType {
         public Comparable cast(String text) {
             return text;
         }
+    },
+    ALPHA_NUM{
+        @Override
+        public Comparator getComparator() {
+            return Comparators.ALPHA_NUM;
+        }
+
+        @Override
+        public Ordering getOrdering() {
+            return Ordering.from(Comparators.ALPHA_NUM);
+        }
+
+        @Override
+        public Comparable cast(String text) {
+            return text;
+        }
     };
 
     public abstract Comparator getComparator();
@@ -115,6 +131,41 @@ final class Comparators {
         }
     };
 
+    public final static Comparator ALPHA_NUM = new Comparator()
+    {
+        @Override
+        public int compare(Object o, Object o1)
+        {
+        	String lhs = (String)o;
+        	String rhs = (String)o1;
+        	
+        	if(Strings.isNullOrEmpty(lhs)){
+        		if(Strings.isNullOrEmpty(rhs)){
+        			return 0;
+        		}else{
+        			return -1;
+        		}
+        	}else{
+        		if(Strings.isNullOrEmpty(rhs)){
+        			return 1;
+        		}
+        	}
+        	
+        	List<Comparable> lc = new AlphaNumAlpha(lhs).getComparators();
+        	List<Comparable> rc = new AlphaNumAlpha(rhs).getComparators();
+        	
+        	for(int i = 0, j = 0; i < lc.size() && j < rc.size(); ++i, ++j){
+        		int c =  lc.get(i).compareTo(rc.get(j));
+        		if(c != 0){
+        			return c;
+        		}else{
+        			continue;
+        		}
+        	}
+        	
+        	return lc.size() - rc.size();
+        }
+    };
 }
 
 /** An ordering that uses the natural order of the values. */
