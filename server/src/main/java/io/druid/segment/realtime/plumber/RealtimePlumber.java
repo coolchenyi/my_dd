@@ -75,6 +75,10 @@ import com.metamx.emitter.EmittingLogger;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceMetricEvent;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Collections;
+
 /**
  */
 public class RealtimePlumber implements Plumber
@@ -108,7 +112,9 @@ public class RealtimePlumber implements Plumber
   private RealtimePlumberLogger consumerLogger;
   
   private RowDuplicateRaw duplicateRaw = null;
-  
+
+  private Set<Long> mergingSinks = Collections.synchronizedSet(new HashSet<Long>());
+
   public RealtimePlumber(
       DataSchema schema,
       RealtimeTuningConfig config,
@@ -589,16 +595,12 @@ public class RealtimePlumber implements Plumber
     final int maxPendingPersists = config.getMaxPendingPersists();
 
     if (persistExecutor == null) {
-      // use a blocking single threaded executor to throttle the firehose when write to disk is slow
-      persistExecutor = Execs.newBlockingSingleThreaded(
-          "plumber_persist_%d", 3
-      );
+        // use a blocking single threaded executor to throttle the firehose when write to disk is slow
+        persistExecutor = Execs.multiThreaded(5, "plumber_persist_%d");
     }
     if (mergeExecutor == null) {
-      // use a blocking single threaded executor to throttle the firehose when write to disk is slow
-      mergeExecutor = Execs.newBlockingSingleThreaded(
-          "plumber_merge_%d", 3
-      );
+        // use a blocking single threaded executor to throttle the firehose when write to disk is slow
+        mergeExecutor = Execs.multiThreaded(5, "plumber_merge_%d");
     }
 
     if (scheduledExecutor == null) {
@@ -771,8 +773,11 @@ public class RealtimePlumber implements Plumber
                 for (Map.Entry<Long, Sink> entry : sinks.entrySet()) {
                   final Long intervalStart = entry.getKey();
                   if (intervalStart < minTimestamp) {
-                    log.info("Adding entry[%s] for merge and push.", entry);
-                    sinksToPush.add(entry);
+                      log.info("Adding entry[%s] for merge and push.", entry);
+                      if(!mergingSinks.contains(intervalStart)){
+                          mergingSinks.add(intervalStart);
+                          sinksToPush.add(entry);
+                      }
                   } else {
                     log.warn(
                         "[%s] < [%s] Skipping persist and merge.",
